@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Application Settings"""
     
     # OpenAI Configuration
-    openai_api_key: str = Field(..., env="OPENAI_API_KEY")
+    openai_api_key: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     embedding_model: str = Field(default="text-embedding-3-large", env="EMBEDDING_MODEL")
     llm_model: str = Field(default="gpt-4o-mini", env="LLM_MODEL")
     max_tokens: int = Field(default=2000, env="MAX_TOKENS")
