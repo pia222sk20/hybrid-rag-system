@@ -11,12 +11,19 @@ class EmbeddingManager:
     """Manage embeddings using OpenAI API"""
     
     def __init__(self):
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        self.client = None
+        if settings.openai_api_key:
+            self.client = OpenAI(api_key=settings.openai_api_key)
         self.model = settings.embedding_model
-        log.info(f"Initialized EmbeddingManager with model: {self.model}")
+        log.info(f"Initialized EmbeddingManager with model: {self.model}" +
+                 (" (OpenAI client initialized)" if self.client else " (OpenAI client NOT initialized - API key missing)"))
     
     def embed_text(self, text: str) -> List[float]:
         """Generate embedding for a single text"""
+        if not self.client:
+            log.warning("OpenAI client not initialized. Returning zero embedding.")
+            return [0.0] * 1536  # OpenAI embedding size
+        
         try:
             response = self.client.embeddings.create(
                 model=self.model,
@@ -30,6 +37,10 @@ class EmbeddingManager:
     
     def embed_texts(self, texts: List[str], batch_size: int = 100) -> List[List[float]]:
         """Generate embeddings for multiple texts in batches"""
+        if not self.client:
+            log.warning("OpenAI client not initialized. Returning zero embeddings.")
+            return [[0.0] * 1536 for _ in texts]  # OpenAI embedding size
+        
         all_embeddings = []
         
         for i in range(0, len(texts), batch_size):
