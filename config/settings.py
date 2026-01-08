@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     
     # Index Paths
     chroma_db_path: str = Field(default="./index/chroma_db", env="CHROMA_DB_PATH")
-    bm25_index_path: str = Field(default="./index/bm25_index.pkl", env="BM25_INDEX_PATH")
+    bm25_index_path: str = Field(default="./index/bm25_index.json", env="BM25_INDEX_PATH")
     
     # Data Paths
     data_raw_path: str = Field(default="./data/raw", env="DATA_RAW_PATH")

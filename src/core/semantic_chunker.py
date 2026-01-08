@@ -2,7 +2,7 @@
 Semantic Chunker for intelligent text splitting
 """
 from typing import List, Dict
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from config.settings import settings
 from src.utils.logger import log
 

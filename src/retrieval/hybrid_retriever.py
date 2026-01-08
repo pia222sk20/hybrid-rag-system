@@ -149,6 +149,7 @@ class HybridRetriever:
     def reset(self):
         """Reset both retrievers"""
         self.dense_retriever.reset_collection()
+        self.sparse_retriever.reset()
         log.info("Hybrid retriever reset completed")
 
 

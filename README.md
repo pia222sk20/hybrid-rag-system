@@ -6,6 +6,8 @@
 
 ### ✨ 핵심 기능
 - **Hybrid Retrieval**: Dense (Vector) + Sparse (BM25) 검색을 통한 높은 정확도
+- **Secure Indexing**: Pickle 대신 JSON 형식을 사용하여 Sparse 인덱스의 보안성 강화
+- **Non-blocking Reindex**: 대용량 문서 처리를 위한 비동기 백그라운드 재인덱싱 지원
 - **Semantic Chunking**: 문서 구조를 고려한 지능형 청킹
 - **Grounded Generation**: 문서 기반 답변 생성으로 Hallucination 방지
 - **Citation Support**: 답변에 출처 정보 자동 포함
@@ -65,7 +67,14 @@ cp your_documents/*.docx data/raw/
 
 ### Step 1: 문서 인덱싱
 
-API 서버 실행 후 `/api/v1/reindex` 엔드포인트 호출하거나, 직접 스크립트 실행:
+API 서버 실행 후 `/api/v1/reindex` 엔드포인트 호출 (비동기로 실행됨):
+
+```bash
+# API 실행 후
+curl -X POST "http://localhost:8000/api/v1/reindex" -d '{"reset_existing": true}'
+```
+
+또는 직접 스크립트 실행:
 
 ```bash
 python -m src.retrieval.hybrid_retriever

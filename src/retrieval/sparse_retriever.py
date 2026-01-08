@@ -1,7 +1,7 @@
 """
 Sparse Retrieval using BM25
 """
-import pickle
+import json
 from pathlib import Path
 from typing import List, Dict
 from rank_bm25 import BM25Okapi
@@ -87,37 +87,40 @@ class SparseRetriever:
         return results
     
     def _save_index(self):
-        """Save BM25 index to disk"""
+        """Save chunks to disk (index is rebuilt on load)"""
         try:
             Path(self.index_path).parent.mkdir(parents=True, exist_ok=True)
             
-            with open(self.index_path, 'wb') as f:
-                pickle.dump({
-                    'bm25': self.bm25,
-                    'chunks': self.chunks,
-                    'tokenized_corpus': self.tokenized_corpus
-                }, f)
+            with open(self.index_path, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'chunks': self.chunks
+                }, f, ensure_ascii=False, indent=2)
             
-            log.info(f"BM25 index saved to {self.index_path}")
+            log.info(f"Sparse index data saved to {self.index_path}")
         except Exception as e:
-            log.error(f"Failed to save BM25 index: {e}")
+            log.error(f"Failed to save Sparse index: {e}")
     
     def _load_index(self):
-        """Load BM25 index from disk"""
+        """Load chunks from disk and rebuild BM25 index"""
         try:
             if not Path(self.index_path).exists():
-                log.warning(f"BM25 index not found at {self.index_path}")
+                log.warning(f"Sparse index not found at {self.index_path}")
                 return
             
-            with open(self.index_path, 'rb') as f:
-                data = pickle.load(f)
-                self.bm25 = data['bm25']
+            with open(self.index_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
                 self.chunks = data['chunks']
-                self.tokenized_corpus = data['tokenized_corpus']
             
-            log.info(f"BM25 index loaded from {self.index_path}")
+            # Rebuild index
+            if self.chunks:
+                self.tokenized_corpus = [
+                    self._tokenize(chunk["text"]) for chunk in self.chunks
+                ]
+                self.bm25 = BM25Okapi(self.tokenized_corpus)
+                log.info(f"BM25 index rebuilt from {len(self.chunks)} chunks")
+            
         except Exception as e:
-            log.error(f"Failed to load BM25 index: {e}")
+            log.error(f"Failed to load Sparse index: {e}")
     
     def get_stats(self) -> Dict:
         """Get index statistics"""
@@ -128,6 +131,22 @@ class SparseRetriever:
             "total_chunks": len(self.chunks) if self.chunks else 0,
             "index_path": self.index_path
         }
+    
+    def reset(self):
+        """Reset index and delete file"""
+        self.bm25 = None
+        self.chunks = []
+        self.tokenized_corpus = []
+        
+        try:
+            path = Path(self.index_path)
+            if path.exists():
+                path.unlink()
+                log.info(f"Deleted sparse index file: {self.index_path}")
+        except Exception as e:
+            log.error(f"Failed to delete sparse index file: {e}")
+        
+        log.info("Sparse retriever reset completed")
 
 
 if __name__ == "__main__":

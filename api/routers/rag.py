@@ -2,6 +2,7 @@
 RAG API Router
 """
 from fastapi import APIRouter, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from api.models import (
     QueryRequest, QueryResponse,
     StatsResponse, ReindexRequest, ReindexResponse
@@ -24,6 +25,36 @@ def get_rag_chain():
         _rag_chain = RAGChain()
         log.info("RAG chain initialized successfully")
     return _rag_chain
+
+
+def _perform_reindexing(reset_existing: bool):
+    """Synchronous reindexing function to be run in a thread"""
+    rag_chain = get_rag_chain()
+    
+    # Reset if requested
+    if reset_existing:
+        rag_chain.retriever.reset()
+        log.info("Existing index reset")
+    
+    # Load documents
+    loader = DocumentLoader()
+    docs = loader.load_all_documents()
+    
+    if not docs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No documents found in data/raw/ directory"
+        )
+    
+    # Chunk documents
+    chunker = SemanticChunker()
+    chunks = chunker.chunk_documents(docs)
+    
+    # Index chunks
+    rag_chain.retriever.index_chunks(chunks)
+    
+    log.info(f"Reindexing completed: {len(docs)} documents, {len(chunks)} chunks")
+    return len(docs), len(chunks)
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -91,37 +122,17 @@ async def reindex_documents(request: ReindexRequest):
     try:
         log.info("Starting reindexing process...")
         
-        rag_chain = get_rag_chain()
-        
-        # Reset if requested
-        if request.reset_existing:
-            rag_chain.retriever.reset()
-            log.info("Existing index reset")
-        
-        # Load documents
-        loader = DocumentLoader()
-        docs = loader.load_all_documents()
-        
-        if not docs:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No documents found in data/raw/ directory"
-            )
-        
-        # Chunk documents
-        chunker = SemanticChunker()
-        chunks = chunker.chunk_documents(docs)
-        
-        # Index chunks
-        rag_chain.retriever.index_chunks(chunks)
-        
-        log.info(f"Reindexing completed: {len(docs)} documents, {len(chunks)} chunks")
+        # Run heavy reindexing logic in a separate thread
+        total_docs, total_chunks = await run_in_threadpool(
+            _perform_reindexing, 
+            reset_existing=request.reset_existing
+        )
         
         return ReindexResponse(
             status="success",
             message="Documents reindexed successfully",
-            total_documents=len(docs),
-            total_chunks=len(chunks)
+            total_documents=total_docs,
+            total_chunks=total_chunks
         )
         
     except HTTPException:
