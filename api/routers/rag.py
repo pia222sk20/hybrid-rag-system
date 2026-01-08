@@ -13,8 +13,17 @@ from src.utils.logger import log
 
 router = APIRouter(prefix="/api/v1", tags=["RAG"])
 
-# Global RAG chain instance
-rag_chain = RAGChain()
+# Global RAG chain instance (lazy loading)
+_rag_chain = None
+
+def get_rag_chain():
+    """Get or initialize RAG chain (lazy loading)"""
+    global _rag_chain
+    if _rag_chain is None:
+        log.info("Initializing RAG chain...")
+        _rag_chain = RAGChain()
+        log.info("RAG chain initialized successfully")
+    return _rag_chain
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -29,6 +38,7 @@ async def query_documents(request: QueryRequest):
     try:
         log.info(f"API Query received: {request.question}")
         
+        rag_chain = get_rag_chain()
         result = rag_chain.query(
             question=request.question,
             top_k=request.top_k,
@@ -53,6 +63,7 @@ async def get_statistics():
     Returns information about indexed documents and retrieval performance
     """
     try:
+        rag_chain = get_rag_chain()
         retrieval_stats = rag_chain.get_retriever_stats()
         
         return StatsResponse(
@@ -79,6 +90,8 @@ async def reindex_documents(request: ReindexRequest):
     """
     try:
         log.info("Starting reindexing process...")
+        
+        rag_chain = get_rag_chain()
         
         # Reset if requested
         if request.reset_existing:
