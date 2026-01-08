@@ -38,8 +38,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-)
-
 # Include routers (lazy import to prevent startup delays)
 # Note: RAG endpoints will be loaded on first request
 _router_loaded = False
