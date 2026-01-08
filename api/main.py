@@ -3,7 +3,6 @@ FastAPI Main Application
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routers import rag
 from api.models import HealthResponse
 from config.settings import settings
 from src.utils.logger import log
@@ -39,18 +38,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(rag.router)
+)
+
+# Include routers (lazy import to prevent startup delays)
+# Note: RAG endpoints will be loaded on first request
+_router_loaded = False
+
+async def load_router_on_demand():
+    """Load router on first request"""
+    global _router_loaded
+    if not _router_loaded:
+        try:
+            from api.routers import rag
+            app.include_router(rag.router)
+            _router_loaded = True
+            log.info("RAG router loaded successfully")
+        except Exception as e:
+            log.error(f"Failed to load RAG router: {e}")
+            log.warning("RAG API endpoints will not be available")
+
+# Add middleware to load router on first request
+@app.middleware("http")
+async def load_router_middleware(request, call_next):
+    await load_router_on_demand()
+    return await call_next(request)
 
 
 @app.on_event("startup")
 async def startup_event():
     """Run on application startup"""
-    log.info("=" * 50)
-    log.info("Starting Hybrid RAG System API")
-    log.info(f"LLM Model: {settings.llm_model}")
-    log.info(f"Embedding Model: {settings.embedding_model}")
-    log.info("=" * 50)
+    try:
+        log.info("=" * 50)
+        log.info("Starting Hybrid RAG System API")
+        log.info(f"LLM Model: {settings.llm_model}")
+        log.info(f"Embedding Model: {settings.embedding_model}")
+        log.info("=" * 50)
+    except Exception as e:
+        log.error(f"Error during startup: {e}")
+        raise
 
 
 @app.on_event("shutdown")
