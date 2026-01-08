@@ -12,10 +12,13 @@ class RAGChain:
     """RAG Chain with grounded generation and citation"""
     
     def __init__(self):
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        self.client = None
+        if settings.openai_api_key:
+            self.client = OpenAI(api_key=settings.openai_api_key)
         self.retriever = HybridRetriever()
         self.model = settings.llm_model
-        log.info(f"Initialized RAGChain with model: {self.model}")
+        log.info(f"Initialized RAGChain with model: {self.model}" + 
+                 (" (OpenAI client initialized)" if self.client else " (OpenAI client NOT initialized - API key missing)"))
     
     def query(
         self,
@@ -84,6 +87,14 @@ class RAGChain:
     
     def _generate_answer(self, question: str, context: str) -> tuple[str, float]:
         """Generate grounded answer using LLM"""
+        
+        # Return mock answer if OpenAI client is not available
+        if not self.client:
+            return (
+                "죄송합니다. OpenAI API 키가 설정되어 있지 않아 답변을 생성할 수 없습니다. "
+                "OPENAI_API_KEY 환경 변수를 설정해주세요.",
+                0.0
+            )
         
         system_prompt = """당신은 제공된 문서만을 기반으로 정확하게 답변하는 AI 어시스턴트입니다.
 
